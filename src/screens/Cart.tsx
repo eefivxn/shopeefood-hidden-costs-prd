@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Minus, Plus, Ticket, Trash2, ChevronLeft } from "lucide-react";
 import type { Cart, CostBreakdown, Profile, Voucher } from "../data/types";
 import { VOUCHERS, menuById, restaurantById } from "../data/mockData";
-import { fmtRp, budgetStatus, voucherEligibility } from "../lib/pricing";
+import { fmtRp, budgetStatus, budgetTenths, fmtPctTenths, voucherEligibility } from "../lib/pricing";
 import { Button, Modal, Notice, Badge } from "../components/ui";
 import { useApp } from "../App";
 
@@ -27,7 +27,8 @@ export default function CartScreen({
   const isEmpty = cart.lines.length === 0;
   const projection = profile.spentToday + breakdown.total;
   const status = budgetStatus(projection, profile.budget);
-  const pct = profile.budget ? Math.round((projection * 100) / profile.budget) : null;
+  const pct = profile.budget ? budgetTenths(projection, profile.budget) : null;
+  const pctLabel = pct !== null ? fmtPctTenths(pct) : null;
 
   const subtotal = breakdown.subtotal;
 
@@ -202,23 +203,28 @@ export default function CartScreen({
         </dl>
       </section>
 
-      {status && pct !== null && profile.budget !== null && (
+      {status && pct !== null && pctLabel !== null && profile.budget !== null && (
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900">Budget Tracker</h2>
             <Badge status={status} />
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={Math.round(pct / 10)} aria-valuemin={0} aria-valuemax={100}>
             <div
               className={`h-full rounded-full transition-all ${
                 status === "OK" ? "bg-green-500" : status === "WARN" ? "bg-amber-500" : "bg-red-600"
               }`}
-              style={{ width: `${Math.min(100, pct)}%` }}
+              style={{ width: `${Math.min(100, pct / 10)}%` }}
             />
           </div>
           <p className="text-xs text-gray-600">
-            Proyeksi: {fmtRp(projection)} dari budget {fmtRp(profile.budget)} ({pct}%)
+            Proyeksi: {fmtRp(projection)} dari budget {fmtRp(profile.budget)} ({pctLabel})
           </p>
+          {status === "EXCEEDED" && projection > profile.budget && (
+            <p className="text-xs font-semibold text-red-700">
+              Melebihi budget {fmtRp(projection - profile.budget)}
+            </p>
+          )}
         </section>
       )}
 

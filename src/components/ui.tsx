@@ -134,9 +134,11 @@ export function Modal({
 export function Notice({
   children,
   tone = "info",
+  role = "status",
 }: {
   children: ReactNode;
   tone?: "info" | "success" | "warning";
+  role?: string;
 }) {
   const styles = {
     info: "bg-blue-50 border-blue-200 text-blue-900",
@@ -145,7 +147,7 @@ export function Notice({
   }[tone];
   return (
     <div
-      role="status"
+      role={role}
       className={`rounded-xl border p-3 text-sm leading-relaxed ${styles}`}
     >
       {children}

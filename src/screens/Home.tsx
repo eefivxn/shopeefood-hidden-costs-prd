@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { SlidersHorizontal } from "lucide-react";
 import type { Cart, Profile } from "../data/types";
 import { RESTAURANTS } from "../data/mockData";
@@ -49,8 +49,11 @@ export default function HomeScreen({
   onSetProfile: React.Dispatch<React.SetStateAction<Profile>>;
   onResetProfile: () => void;
 }) {
-  const { navigate } = useApp();
-  const [budgetOnly, setBudgetOnly] = useState(false);
+  const { navigate, budgetFilterOn, setBudgetFilterOn } = useApp();
+  const [budgetOnly, setBudgetOnly] = useState(budgetFilterOn);
+  useEffect(() => {
+    setBudgetOnly(budgetFilterOn);
+  }, [budgetFilterOn]);
   const [cheapestFirst, setCheapestFirst] = useState(false);
   const [query, setQuery] = useState("");
 
@@ -108,7 +111,10 @@ export default function HomeScreen({
               type="checkbox"
               checked={budgetOnly}
               disabled={profile.budget === null}
-              onChange={(e) => setBudgetOnly(e.target.checked)}
+              onChange={(e) => {
+                setBudgetOnly(e.target.checked);
+                setBudgetFilterOn(e.target.checked);
+              }}
               className="h-4 w-4 accent-brand-600"
             />
             <SlidersHorizontal size={16} /> Sesuai Budget Saya

@@ -26,6 +26,12 @@ type Screen =
   | { name: "checkout" }
   | { name: "receipt"; orderId: string; total: number; breakdownJson: string };
 
+export const ADDRESSES = [
+  { label: "Kos dekat kampus, Malang (data fiktif)", feeDelta: 0 },
+  { label: "Rumah teman di Lowokwaru, Malang (data fiktif)", feeDelta: 3000 },
+  { label: "Tempat kerja paruh waktu di Klojen, Malang (data fiktif)", feeDelta: 5000 },
+];
+
 function parseHash(): Screen {
   const h = window.location.hash.replace(/^#\/?/, "");
   if (h.startsWith("menu/")) return { name: "menu", restaurantId: h.slice(5) };
@@ -40,6 +46,8 @@ interface AppCtx {
   openBudget: () => void;
   budgetFilterOn: boolean;
   setBudgetFilterOn: (v: boolean) => void;
+  addressIdx: number;
+  setAddressIdx: (idx: number) => void;
 }
 const AppContext = createContext<AppCtx | null>(null);
 export const useApp = () => {
@@ -62,6 +70,7 @@ export default function App() {
   const [budgetFilterOn, setBudgetFilterOn] = useState(false);
   const [lastReceipt, setLastReceipt] = useState<ReceiptData | null>(null);
   const [cartNotice, setCartNotice] = useState<string | null>(null);
+  const [addressIdx, setAddressIdx] = useState(0);
 
   useEffect(() => {
     const onHash = () => {
@@ -74,7 +83,10 @@ export default function App() {
     return () => window.removeEventListener("hashchange", onHash);
   }, [lastReceipt, cart.lines.length]);
 
-  const breakdown = useMemo(() => calculate(cart), [cart]);
+  const breakdown = useMemo(
+    () => calculate(cart, ADDRESSES[addressIdx].feeDelta),
+    [cart, addressIdx]
+  );
   const remaining = profile.budget !== null ? profile.budget - profile.spentToday : null;
   const status = budgetStatus(profile.spentToday + breakdown.total, profile.budget);
 
@@ -95,14 +107,17 @@ export default function App() {
       openBudget: () => setBudgetModalOpen(true),
       budgetFilterOn,
       setBudgetFilterOn,
+      addressIdx,
+      setAddressIdx,
     }),
-    [budgetFilterOn]
+    [budgetFilterOn, addressIdx]
   );
 
   const handlePaid = (data: ReceiptData, newSpentToday: number) => {
     setLastReceipt(data);
     setProfile((p: Profile) => ({ ...p, spentToday: newSpentToday }));
     setCart(emptyCart);
+    setAddressIdx(0);
     navigate({ name: "receipt", orderId: data.orderId, total: data.total, breakdownJson: data.breakdownJson });
     setScreen({ name: "receipt", orderId: data.orderId, total: data.total, breakdownJson: data.breakdownJson });
   };
@@ -192,6 +207,13 @@ export default function App() {
             />
           )}
         </main>
+
+        <footer className="mx-auto w-full max-w-5xl px-4 pb-24 pt-2 text-center sm:pb-6">
+          <p className="text-xs text-gray-400">
+            Prototype akademik. Tidak berafiliasi dengan Shopee/ShopeeFood. Seluruh data bersifat
+            fiktif.
+          </p>
+        </footer>
 
         <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-stretch justify-around px-2 py-1.5">

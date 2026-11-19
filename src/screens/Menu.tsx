@@ -50,7 +50,7 @@ export default function MenuScreen({
   cart: Cart;
   setCart: React.Dispatch<React.SetStateAction<Cart>>;
 }) {
-  const { navigate } = useApp();
+  const { navigate, setAddressIdx } = useApp();
   const restaurant = restaurantById(restaurantId);
   const menu = menuForRestaurant(restaurantId);
   const [infoOpen, setInfoOpen] = useState(false);
@@ -64,7 +64,8 @@ export default function MenuScreen({
       ? cart.lines.find((l) => l.menuItemId === menuItemId)?.qty ?? 0
       : 0;
   const cartCount = cart.lines.reduce((a, l) => a + l.qty, 0);
-  const cartFromOther = cart.restaurantId !== null && cart.restaurantId !== restaurantId;
+  const cartFromOther =
+    cart.lines.length > 0 && cart.restaurantId !== null && cart.restaurantId !== restaurantId;
 
   const applyQty = (itemId: string, delta: number) => {
     const item = menuById(itemId);
@@ -85,16 +86,24 @@ export default function MenuScreen({
       }
       return {
         ...c,
-        restaurantId: lines.length ? restaurantId : c.restaurantId,
+        restaurantId: lines.length > 0 ? restaurantId : null,
         lines,
-        foodVoucherId: lines.length ? c.foodVoucherId : null,
-        deliveryVoucherId: lines.length ? c.deliveryVoucherId : null,
+        foodVoucherId: lines.length > 0 ? c.foodVoucherId : null,
+        deliveryVoucherId: lines.length > 0 ? c.deliveryVoucherId : null,
       };
     });
   };
 
   const confirmSwitchYes = () => {
-    if (pendingQty) applyQty(pendingQty.itemId, pendingQty.delta);
+    if (pendingQty && pendingQty.delta > 0) {
+      setCart({
+        restaurantId,
+        lines: [{ menuItemId: pendingQty.itemId, qty: pendingQty.delta }],
+        foodVoucherId: null,
+        deliveryVoucherId: null,
+      });
+      setAddressIdx(0);
+    }
     setPendingQty(null);
     setConfirmSwitch(null);
   };

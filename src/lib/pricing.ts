@@ -1,4 +1,13 @@
 import { restaurantById, menuById, VOUCHERS, MENU } from "../data/mockData";
+
+const RESTAURANT_NAMES: Record<string, string> = {
+  "R-01": "Ayam Bakar Pak Dhe",
+  "R-02": "Geprek Bu Rina",
+  "R-03": "Nasi Goreng Mas Joko",
+  "R-04": "Bakso Pak Slamet",
+  "R-05": "Kopi & Roti Senja",
+  "R-06": "Sate Ayam Madura",
+};
 import type {
   BudgetStatus,
   Cart,
@@ -6,8 +15,25 @@ import type {
   Voucher,
 } from "../data/types";
 
-export const fmtRp = (n: number): string =>
-  "Rp" + n.toLocaleString("id-ID", { maximumFractionDigits: 0 });
+export const fmtRp = (n: number): string => {
+  if (!Number.isInteger(n)) n = Math.round(n);
+  const sign = n < 0 ? "-" : "";
+  const digits = Math.abs(n).toString();
+  let grouped = "";
+  for (let i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 === 0) grouped += ".";
+    grouped += digits[i];
+  }
+  return `${sign}Rp${grouped}`;
+};
+
+// BR-09/BR-11: percentage with one decimal, comma separator, no rounding of status input.
+// tenths = round half up of projection*1000/budget, integer-only.
+export const budgetTenths = (projection: number, budget: number): number =>
+  budget <= 0 ? 0 : Math.floor((projection * 2000 + budget) / (2 * budget));
+
+export const fmtPctTenths = (tenths: number): string =>
+  tenths % 10 === 0 ? `${tenths / 10}%` : `${Math.floor(tenths / 10)},${tenths % 10}%`;
 
 export const roundHalfUp = (base: number, pct: number): number =>
   Math.floor((base * pct + 50) / 100);
@@ -50,9 +76,10 @@ export const voucherEligibility = (
   subtotal: number
 ): { eligible: boolean; reason: string | null; shortfall: number } => {
   if (voucher.restaurantId && voucher.restaurantId !== restaurantId) {
+    const target = RESTAURANT_NAMES[voucher.restaurantId] ?? voucher.restaurantId;
     return {
       eligible: false,
-      reason: "Hanya berlaku di restoran tertentu",
+      reason: `Hanya berlaku di ${target}`,
       shortfall: 0,
     };
   }
@@ -67,7 +94,10 @@ export const voucherEligibility = (
   return { eligible: true, reason: null, shortfall: 0 };
 };
 
-export const calculate = (cart: Cart): CostBreakdown => {
+export const calculate = (
+  cart: Cart,
+  deliveryFeeAdjustment = 0
+): CostBreakdown => {
   const r = restaurantById(cart.restaurantId);
   const empty: CostBreakdown = {
     subtotal: 0,
@@ -95,7 +125,7 @@ export const calculate = (cart: Cart): CostBreakdown => {
 
   const tax = roundHalfUp(taxableBase, r.taxRatePct);
   const packing = totalQty * r.packingFeePerItem;
-  const delivery = r.deliveryFee;
+  const delivery = r.deliveryFee + deliveryFeeAdjustment;
   const service = r.serviceFee;
 
   const fv = voucherById(cart.foodVoucherId);
@@ -162,5 +192,5 @@ export const budgetProjectionPct = (
   budget: number | null
 ): number | null => {
   if (!budget) return null;
-  return (projection * 100) / budget;
+  return budgetTenths(projection, budget) / 10;
 };

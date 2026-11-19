@@ -1,15 +1,9 @@
 import { useMemo, useState } from "react";
 import { MapPin, AlertTriangle, ArrowLeft } from "lucide-react";
 import type { Cart, CostBreakdown, Profile } from "../data/types";
-import { fmtRp, budgetStatus } from "../lib/pricing";
+import { fmtRp, budgetStatus, budgetTenths, fmtPctTenths } from "../lib/pricing";
 import { Button, Modal, Notice, Badge } from "../components/ui";
-import { useApp } from "../App";
-
-const ADDRESSES = [
-  { label: "Kos dekat kampus, Malang", feeDelta: 0 },
-  { label: "Rumah Keluarga — Arjuno, Malang", feeDelta: 4000 },
-  { label: "Kantor — Lowokwaru, Malang", feeDelta: 2000 },
-];
+import { useApp, ADDRESSES } from "../App";
 
 export default function CheckoutScreen({
   cart,
@@ -24,18 +18,17 @@ export default function CheckoutScreen({
   breakdown: CostBreakdown;
   onPaid: (data: { orderId: string; total: number; breakdownJson: string }, newSpentToday: number) => void;
 }) {
-  const { navigate } = useApp();
-  const [addressIdx, setAddressIdx] = useState(0);
+  const { navigate, setBudgetFilterOn, addressIdx, setAddressIdx } = useApp();
   const currentAddress = ADDRESSES[addressIdx];
-  const [addressChange, setAddressChange] = useState<null | { before: number; after: number; cause: string }>(null);
+  const [addressChange, setAddressChange] = useState<null | { before: number; after: number; cause: string; feeBefore: number; feeAfter: number }>(null);
   const [exceededDialog, setExceededDialog] = useState(false);
   const [paid, setPaid] = useState(false);
 
-  const addressFee = currentAddress.feeDelta;
-  const total = breakdown.total + addressFee;
+  const total = breakdown.total;
   const projection = profile.spentToday + total;
   const status = budgetStatus(projection, profile.budget);
-  const pct = profile.budget ? Math.round((projection * 100) / profile.budget) : null;
+  const pct = profile.budget ? budgetTenths(projection, profile.budget) : null;
+  const pctLabel = pct !== null ? fmtPctTenths(pct) : null;
   const empty = cart.lines.length === 0;
 
   const rows = useMemo(
@@ -43,24 +36,28 @@ export default function CheckoutScreen({
       ["Subtotal item", fmtRp(breakdown.subtotal)],
       ["Pajak restoran", fmtRp(breakdown.tax)],
       ["Biaya kemasan", fmtRp(breakdown.packing)],
-      ["Ongkos kirim", fmtRp(breakdown.delivery + addressFee)],
+      ["Ongkos kirim", fmtRp(breakdown.delivery)],
       ["Biaya layanan", fmtRp(breakdown.service)],
       breakdown.foodDiscount > 0 ? ["Diskon voucher makanan", `−${fmtRp(breakdown.foodDiscount)}`] : null,
       breakdown.deliveryDiscount > 0 ? ["Diskon voucher ongkir", `−${fmtRp(breakdown.deliveryDiscount)}`] : null,
     ].filter(Boolean) as [string, string][],
-    [breakdown, addressFee]
+    [breakdown]
   );
 
   const changeAddress = (idx: number) => {
     if (idx === addressIdx) return;
     const before = total;
-    const feeDelta = ADDRESSES[idx].feeDelta;
-    const after = breakdown.total + feeDelta;
+    const after =
+      breakdown.total - currentAddress.feeDelta + ADDRESSES[idx].feeDelta;
+    const feeBefore = breakdown.delivery;
+    const feeAfter = breakdown.delivery - currentAddress.feeDelta + ADDRESSES[idx].feeDelta;
     setAddressIdx(idx);
     setAddressChange({
       before,
       after,
-      cause: `perubahan alamat mengubah ongkir sebesar ${fmtRp(Math.abs(after - before))}`,
+      feeBefore,
+      feeAfter,
+      cause: `alamat pengiriman diubah ke "${ADDRESSES[idx].label}"`,
     });
   };
 
@@ -77,7 +74,7 @@ export default function CheckoutScreen({
     setPaid(true);
     const orderId = "TPBG-" + Date.now().toString(36).toUpperCase();
     onPaid(
-      { orderId, total, breakdownJson: JSON.stringify({ rows, total, address: currentAddress.label, exceeded: status === "EXCEEDED" }) },
+      { orderId, total, breakdownJson: JSON.stringify({ rows, total, address: currentAddress.label, exceeded: status === "EXCEEDED", spentBefore: profile.spentToday, spentAfter: profile.spentToday + total, budget: profile.budget }) },
       profile.spentToday + total
     );
   };
@@ -101,9 +98,17 @@ export default function CheckoutScreen({
       <h1 className="text-xl font-extrabold text-gray-900">Checkout</h1>
 
       {addressChange && (
-        <Notice tone="warning">
-          Total berubah dari <strong>{fmtRp(addressChange.before)}</strong> menjadi{" "}
-          <strong>{fmtRp(addressChange.after)}</strong> karena {addressChange.cause}.
+        <Notice tone="warning" role="alert">
+          <p className="font-semibold">Total berubah.</p>
+          <p>
+            Sebelum: <strong>{fmtRp(addressChange.before)}</strong>. Sesudah:{" "}
+            <strong>{fmtRp(addressChange.after)}</strong>. Penyebab: {addressChange.cause}, ongkos
+            kirim {addressChange.feeBefore === addressChange.feeAfter ? "tetap" : "berubah"} dari{" "}
+            {fmtRp(addressChange.feeBefore)} menjadi {fmtRp(addressChange.feeAfter)}.
+          </p>
+          <Button className="mt-2" variant="secondary" onClick={() => setAddressChange(null)}>
+            Saya mengerti
+          </Button>
         </Notice>
       )}
 
@@ -134,7 +139,7 @@ export default function CheckoutScreen({
             </li>
           ))}
         </ul>
-        {addressFee > 0 && (
+        {currentAddress.feeDelta > 0 && addressIdx !== 0 && (
           <button
             onClick={() => setProfile((p) => ({ ...p, address: currentAddress.label }))}
             className="mt-2 text-xs font-semibold text-brand-600 underline"
@@ -163,29 +168,39 @@ export default function CheckoutScreen({
         </dl>
       </section>
 
-      {status && pct !== null && profile.budget !== null && (
+      {status && pct !== null && pctLabel !== null && profile.budget !== null && (
         <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold text-gray-900">Budget Tracker</h2>
             <Badge status={status} />
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-valuenow={Math.round(pct / 10)} aria-valuemin={0} aria-valuemax={100}>
             <div
-              className={`h-full rounded-full ${
+              className={`h-full rounded-full transition-all ${
                 status === "OK" ? "bg-green-500" : status === "WARN" ? "bg-amber-500" : "bg-red-600"
               }`}
-              style={{ width: `${Math.min(100, pct)}%` }}
+              style={{ width: `${Math.min(100, pct / 10)}%` }}
             />
           </div>
           <p className="text-xs text-gray-600">
-            Proyeksi: {fmtRp(projection)} dari budget {fmtRp(profile.budget)} ({pct}%)
+            Proyeksi: {fmtRp(projection)} dari budget {fmtRp(profile.budget)} ({pctLabel})
           </p>
+          {status === "EXCEEDED" && projection > profile.budget && (
+            <p className="text-xs font-semibold text-red-700">
+              Melebihi budget {fmtRp(projection - profile.budget)}
+            </p>
+          )}
         </section>
       )}
 
-      <Button className="w-full" onClick={onPay}>
+      <Button className="w-full" onClick={onPay} disabled={paid || addressChange !== null}>
         Bayar {fmtRp(total)}
       </Button>
+      {addressChange !== null && (
+        <p className="text-center text-xs text-amber-700">
+          Tekan "Saya mengerti" pada pemberitahuan di atas untuk melanjutkan pembayaran.
+        </p>
+      )}
 
       <Modal
         open={exceededDialog}
@@ -197,14 +212,24 @@ export default function CheckoutScreen({
             <AlertTriangle size={20} className="shrink-0" />
             <p>
               Total <strong>{fmtRp(total)}</strong> melebihi budget harian{" "}
-              {fmtRp(profile.budget ?? 0)}. Proyeksi: {fmtRp(projection)} ({pct}%).
+              {fmtRp(profile.budget ?? 0)}. Proyeksi: {fmtRp(projection)} ({pctLabel}).
             </p>
           </div>
           <div className="grid gap-2">
-            <Button variant="secondary" onClick={() => { setExceededDialog(false); navigate({ name: "cart" }); }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setExceededDialog(false);
+                if (cart.restaurantId) {
+                  navigate({ name: "menu", restaurantId: cart.restaurantId });
+                } else {
+                  navigate({ name: "home" });
+                }
+              }}
+            >
               Ubah pesanan
             </Button>
-            <Button variant="secondary" onClick={() => { setExceededDialog(false); navigate({ name: "home" }); }}>
+            <Button variant="secondary" onClick={() => { setExceededDialog(false); setBudgetFilterOn(true); navigate({ name: "home" }); }}>
               Lihat yang sesuai budget
             </Button>
             <Button onClick={() => { setExceededDialog(false); doPay(); }}>

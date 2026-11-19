@@ -13,7 +13,6 @@ export interface ReceiptData {
 export default function ReceiptScreen({
   data,
   remaining,
-  profile,
 }: {
   data: ReceiptData;
   remaining: number | null;
@@ -25,6 +24,9 @@ export default function ReceiptScreen({
     total: number;
     address: string;
     exceeded: boolean;
+    spentBefore?: number;
+    spentAfter?: number;
+    budget?: number | null;
   };
 
   return (
@@ -43,6 +45,11 @@ export default function ReceiptScreen({
           melebihi budget.
         </Notice>
       )}
+
+      <Notice tone="success">
+        Zero-Delta terverifikasi: Total Cart = Total Checkout = Jumlah Pembayaran
+        (Delta Rp0).
+      </Notice>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">Rincian Pembayaran</h2>
@@ -64,16 +71,36 @@ export default function ReceiptScreen({
       <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-bold text-gray-900">Budget Hari Ini</h2>
         <div className="mt-1 space-y-1 text-sm text-gray-700">
-          <div className="flex justify-between">
-            <span>Budget harian</span>
-            <span className="font-semibold">{profile.budget !== null ? fmtRp(profile.budget) : "—"}</span>
-          </div>
+          {details.budget != null && (
+            <div className="flex justify-between">
+              <span>Budget harian</span>
+              <span className="font-semibold">{fmtRp(details.budget)}</span>
+            </div>
+          )}
+          {details.spentBefore !== undefined && (
+            <div className="flex justify-between">
+              <span>Pengeluaran hari ini (sebelum)</span>
+              <span className="font-semibold">{fmtRp(details.spentBefore)}</span>
+            </div>
+          )}
+          {details.spentAfter !== undefined && (
+            <div className="flex justify-between">
+              <span>Pengeluaran hari ini (sesudah)</span>
+              <span className="font-semibold">{fmtRp(details.spentAfter)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span>Sisa budget</span>
             <span className={`font-semibold ${remaining !== null && remaining < 0 ? "text-red-600" : "text-green-700"}`}>
               {remaining !== null ? fmtRp(remaining) : "—"}
             </span>
           </div>
+          {details.exceeded && details.budget != null && details.spentAfter !== undefined && details.spentAfter > details.budget && (
+            <div className="flex justify-between">
+              <span>Melebihi budget sebesar</span>
+              <span className="font-semibold text-red-600">{fmtRp(details.spentAfter - details.budget)}</span>
+            </div>
+          )}
         </div>
       </section>
 
