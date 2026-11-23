@@ -96,3 +96,12 @@ Semua iterasi pengembangan proyek **ShopeeFood Transparent Pricing and Budget Gu
   - **Polesan Aksesibilitas & UI Footer:**
     - Penambahan catatan *disclaimer* akademik di bagian footer `App.tsx` (*"Prototype akademik. Tidak berafiliasi dengan Shopee/ShopeeFood. Seluruh data bersifat fiktif"*).
     - Penambahan atribut `role` fleksibel pada komponen `Notice` untuk meningkatkan kepatuhan standar aksesibilitas web.
+---
+
+## [Iterasi 6] - Finalisasi Dokumentasi, Changelog & Konfigurasi Deployment
+- **Tanggal:** 23 November 2026
+- **Deskripsi:** `docs: add live Vercel link to README.md and finalize changelog`
+- **Rincian Perubahan:**
+  - Menyematkan dokumen lengkap `PRD.md` ke dalam `README.md` beserta tautan aplikasi web produksi (`https://shopeefood-hidden-costs-prd.vercel.app`).
+  - Menambahkan dokumen `changelog.md` untuk mencatat seluruh kronologi pengembangan dan iterasi prototipe.
+  - Menambahkan konfigurasi `vercel.json` (*rewrite rules*) untuk mendukung navigasi SPA pada lingkungan produksi Vercel.
