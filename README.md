@@ -1,4 +1,4 @@
-> **Live Demo Aplikasi:** [Buka Aplikasi Web](DEPLOYMENT_URL_HERE)
+> **Live Demo Aplikasi:** [Buka Aplikasi Web](https://shopeefood-hidden-costs-prd.vercel.app)
 
 # Product Requirements Document (PRD)
 
